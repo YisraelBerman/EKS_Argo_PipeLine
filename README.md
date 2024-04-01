@@ -1,27 +1,27 @@
 
 # EKS ArgoCD & CodePipline
 
-This project creats a AWS EKS infrastructure in terraform, and runs a AWS CodePipline to update the application. 
-The key components in the project are:
+This project creates a AWS EKS infrastructure in Terraform, and runs a AWS CodePipline to update the application. 
+The key components of the project are:
 - AWS VPC
 - AWS EKS
 - AWS CodePipline
-- AWS CodeCommit repositoreis
+- AWS CodeCommit repositories
 - ArgoCD
 
 
 # Installation
 
 The project is built of two parts:
-- Infrastructure - the project uses Terraform to create the infrastructure. The two main reasurces are AWS EKS and a VPC. The EKS is for the web app and for an ArgoCD server that controls the app deployment.
-- Pipeline - the Pipeline uses 2 repositoreis (one for source code and the second for the Helm chart the ArgoCD uses) and a registry (DockerHub - for the built image). The Pipeline gets triggered on every push to the source repo. The Pipeline builds the new image, tags it with the build number and pushes it to DockerHub. Next it updates the Helm repo with the new image tag. ArgoCD, that is also on the EKS, synchronizes with the repo and updates the app to the new image.
+- Infrastructure - the project uses Terraform to create the infrastructure. The two main resources are AWS EKS and a VPC. The EKS is for the web app and for an ArgoCD server that controls the app deployment.
+- Pipeline - the Pipeline uses 2 repositories (one for source code and the second for the Helm chart the ArgoCD uses) and a registry (DockerHub - for the built image). The Pipeline gets triggered on every push to the source repo. The Pipeline builds the new image, tags it with the build number, and pushes it to DockerHub. Next, it updates the Helm repo with the new image tag. ArgoCD, which also on the EKS, synchronizes with the repo and updates the app to the new image.
 ## Infrastrucrute and setup
 The project is built from three directories.
 
 
 
 ### 1. weather_helm
-Create in AWS CodeCommit a repository and upload the directory to there. save URL and credentials.
+Create an AWS CodeCommit a repository and upload the directory to there. save URL and credentials.
 ### 2. EKS_terraform
 #### A. Setup Terraform environment and create resources.
 
@@ -38,7 +38,7 @@ In AWS in the loadbalancers section attach the two loadbalancers to route53. The
 #### C. Option - not use route53.
 The app is reachable with the loadbalancers DNS.
 To connect to ArgoCD:
-Get password (it is also printed in the end of the outputt of the terraform apply)
+Get the password (it is also printed in the end of the output of the terraform apply)
 ```bash
   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
   kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443
@@ -66,7 +66,7 @@ Create a CodePipline and CodeBuild that will run on every push and use the build
 
 ## Usage
 When a change is made to the application source files, in the weather-app directory, and pushed to the AWS CodeCommit repository a pipeline is triggered.
-The pipeline will test the files in the repository. Then build an image and push it to DockerHub. After that it will update the app's HELM chart, and that will be sencronized by ArgoCD and update the EKS pods.
+The pipeline will test the files in the repository. Then build an image and push it to DockerHub. After that, it will update the app's HELM chart, which will be synchronized by ArgoCD and update the EKS pods.
 
 
 
