@@ -1,0 +1,7 @@
+                                                     
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.cm.name }}
+data:
+  BG_COLOR: {{ .Values.cm.BG_COLOR }}

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.deployment.name }}
+# Define ReplicaSet
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  # Deployment strategy "rolling update"
+  strategy:
+    type: {{ .Values.deployment.strategy_type }}
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.max_surge }}
+      maxUnavailable: {{ .Values.deployment.max_unavailable }}
+  # Match Pods with this label
+  selector:
+    matchLabels:
+      app: {{ .Values.deployment.match_labels }}
+  # Define Pod template for ReplicaSet
+  template:
+    metadata:
+      # Label to match to ReplicaSet
+      labels:
+        app: {{ .Values.deployment.pod_label }}
+    # Define Container in Pod
+    spec:
+      
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.deployment.container_image }}
+          ports:
+            - containerPort: {{ .Values.deployment.container_port }}
+          imagePullPolicy: Always
+        
+
+         
+
+          # ENV FROM CM
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.deployment.cm_name }}
+          # Define resources limits for container
+          resources:
+            # Scrap metrics
+            requests:
+              cpu: {{ .Values.deployment.request_cpu }}
+            limits:
+              memory: {{ .Values.deployment.limit_memory }}
+              cpu: {{ .Values.deployment.limit_cpu }}
+      
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.service.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ .Values.service.selector }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}

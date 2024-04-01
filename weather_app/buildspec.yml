@@ -1,0 +1,45 @@
+version: 0.2
+env:
+  secrets-manager:
+    DOCKER_USER: commit/docker:dockeruser
+    DOCKER_PASSWORD: commit/docker:dockerpass
+phases:
+  install:
+    commands:
+      - git config --global credential.helper '!aws codecommit credential-helper $@'
+      - git config --global credential.UseHttpPath true
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t weatherapp:$CODEBUILD_BUILD_NUMBER .
+      - docker tag weatherapp:$CODEBUILD_BUILD_NUMBER yisraelbdocker/weatherapp:$CODEBUILD_BUILD_NUMBER
+      - docker tag weatherapp:$CODEBUILD_BUILD_NUMBER yisraelbdocker/weatherapp:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push yisraelbdocker/weatherapp:$CODEBUILD_BUILD_NUMBER
+      - docker push yisraelbdocker/weatherapp:latest
+  # update HELM chart that will trigger ArgoCD
+      - git config --global user.name "CI/CD Automation"
+      - git config --global user.email "cicd-automation@example.com"
+      - git clone https://git-codecommit.us-east-1.amazonaws.com/v1/repos/weather_helm
+      - cd weather_helm
+      - echo "Updating container_image tag in values.yaml to the build number"
+      - sed -i 's/yisraelbdocker\/weatherapp:[0-9]\+/yisraelbdocker\/weatherapp:'"$CODEBUILD_BUILD_NUMBER"'/g' ./charts/weather-app/values.yaml
+      - git add ./charts/weather-app/values.yaml
+      - git commit -m "Update image tag to build number $CODEBUILD_BUILD_NUMBER"
+      - git push
+      
+
+
+artifacts:
+  files:
+    - Dockerfile
+    - buildspec.yml
+

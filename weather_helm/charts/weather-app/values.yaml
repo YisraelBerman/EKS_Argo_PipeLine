@@ -1,0 +1,37 @@
+deployment:
+  name: app-deploy
+  namespace: default
+  
+  # RS
+  replicas: 2
+  match_labels: my-weather-app
+  pod_label: my-weather-app
+  
+  # Deploy strategy
+  strategy_type: RollingUpdate
+  max_surge: 1
+  max_unavailable: 1
+  
+  # Container
+  container_image: yisraelbdocker/weatherapp:13
+  container_port: 5000
+  request_cpu: 200m
+  limit_memory: "128Mi"
+  limit_cpu: "500m"
+  
+  # Deployment configs
+  pull_policy: Always
+  cm_name: confmap
+
+service:
+  name: app-service
+  type: LoadBalancer
+  selector: my-weather-app
+  port: 80
+  targetPort: 5000
+
+cm:
+  name: confmap
+  BG_COLOR: lightgreen
+
+
