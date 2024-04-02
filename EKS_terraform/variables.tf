@@ -16,19 +16,16 @@ variable "clustername" {
 variable "argo_repo_url" {
   description = "Repository URL"
   type        = string
-  default     = ""
 }
 
 variable "argo_repo_username" {
   description = "Repository Username"
   type        = string
-  default     = ""
 }
 
 variable "argo_repo_password" {
   description = "Repository Password"
   type        = string
-  default     = ""
 }
 
 variable "host_address" {

@@ -81,6 +81,18 @@ module "eks" {
 
   }
 }
+resource "null_resource" "local_command" {
+  depends_on = [module.eks]
+  
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks --region ${var.region} update-kubeconfig \
+      --name eks-${var.clustername}-project
+    EOT
+  }
+}
+
 #Autoscaller
 resource "aws_iam_policy" "cluster_autoscaler" {
   name        = "AmazonEKSClusterAutoscalerPolicy"
@@ -113,7 +125,7 @@ resource "aws_iam_policy_attachment" "cluster_autoscaler" {
   policy_arn = aws_iam_policy.cluster_autoscaler.arn
 }
 resource "null_resource" "deploy_cluster_autoscaler" {
-  depends_on = [null_resource.cluster_ready]
+  depends_on = [module.eks]
 
   provisioner "local-exec" {
     command = <<-EOT

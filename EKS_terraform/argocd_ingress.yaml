@@ -8,7 +8,7 @@ metadata:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   rules:
-  - host: HOST_PLACEHOLDER
+  - host: argo.weather.yisraelberman.com
     http:
       paths:
       - path: "/"

@@ -2,34 +2,51 @@
 REPO_URL=$1
 REPO_USERNAME=$2
 REPO_PASSWORD=$3
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argo-cd-argocd-server -n argocd --timeout=600s
+HOST_ADDRESS=$4
 
-attempt=0
-max_attempts=10
-port_forwarded=false
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+helm install argo-cd argo/argo-cd -n argocd --create-namespace -f argovalues.yaml
 
-while [ $attempt -lt $max_attempts ]; do
-    kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443 &
-    PF_PID=$!
-    sleep 5
 
-    if nc -zv localhost 8080; then
-        echo "Port forwarding established."
-        port_forwarded=true
-        break
-    else
-        echo "Failed to establish port forwarding, retrying..."
-        kill $PF_PID
-        attempt=$((attempt+1))
-        sleep 20
+kubectl create namespace ingress-nginx --dry-run=client -o yaml | kubectl apply -f - 
+kubectl apply -f ingress_nginx.yaml
+
+
+sleep 60
+sed -i 's/HOST_PLACEHOLDER/${HOST_ADDRESS}/g' ./argocd_ingress.yaml
+kubectl apply -f ./argocd_ingress.yaml
+
+
+INGRESS_SERVICE_NAME="ingress-nginx-controller"
+INGRESS_NAMESPACE="ingress-nginx"
+
+echo "waiting for service to start"
+sleep 60
+
+AZS=$(aws ec2 describe-availability-zones --query "AvailabilityZones[?State=='available'].ZoneName" --output text)
+
+INGRESS_LB_DNS_NAME=$(kubectl get svc "$INGRESS_SERVICE_NAME" -n "$INGRESS_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+    
+INGRESS_LB_NAME=$(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[?DNSName==`'"$INGRESS_LB_DNS_NAME"'`].LoadBalancerName' --output text)
+
+
+for AZ in $AZS; do
+    SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=availability-zone,Values=$AZ" "Name=tag:Name,Values=vpc*" --query "Subnets[0].SubnetId" --output text)
+    
+    if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" == "None" ]; then
+        echo "No matching subnets found for Availability Zone $AZ."
+        continue
     fi
+
+
+    aws elb attach-load-balancer-to-subnets --load-balancer-name "$INGRESS_LB_NAME" --subnets "$INGRESS_SUBNET_ID"
 done
 
-if [ "$port_forwarded" = false ]; then
-    echo "Failed to establish port forwarding after $max_attempts attempts."
-    exit 1
-fi
 
+kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443 &
+PF_PID=$!
+sleep 5
 
 ARGOCD_PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode)
 
@@ -41,8 +58,38 @@ kubectl apply -f argocd-app.yaml
 
 kill $PF_PID
 
+echo "waiting for service to start"
+sleep 120
+
+SERVICE_NAME="app-service"
+NAMESPACE="default"
+
+
+LB_DNS_NAME=$(kubectl get svc "$SERVICE_NAME" -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+ 
+LB_NAME=$(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[?DNSName==`'"$LB_DNS_NAME"'`].LoadBalancerName' --output text)
+
+
+
+for AZ in $AZS; do
+    SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=availability-zone,Values=$AZ" "Name=tag:Name,Values=vpc*" --query "Subnets[0].SubnetId" --output text)
+    
+    if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" == "None" ]; then
+        echo "No matching subnets found for Availability Zone $AZ."
+        continue
+    fi
+
+    aws elb attach-load-balancer-to-subnets --load-balancer-name "$LB_NAME" --subnets "$SUBNET_ID"
+done
+
+echo
 echo
 echo "-----------------------------------"
+echo
+echo "App DNS: $LB_DNS_NAME"
+echo "ArgoCD DNS: $INGRESS_LB_DNS_NAME"
 echo "ArgoCD password: $ARGOCD_PASS"
+echo
 echo "-----------------------------------"
+echo
 echo
