@@ -4,22 +4,10 @@ REPO_USERNAME=$2
 REPO_PASSWORD=$3
 HOST_ADDRESS=$4
 
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
-helm install argo-cd argo/argo-cd -n argocd --create-namespace -f argovalues.yaml
 
 
-kubectl create namespace ingress-nginx --dry-run=client -o yaml | kubectl apply -f - 
-kubectl apply -f ingress_nginx.yaml
-
-
-sleep 60
-sed -i 's/HOST_PLACEHOLDER/${HOST_ADDRESS}/g' ./argocd_ingress.yaml
-kubectl apply -f ./argocd_ingress.yaml
-
-
-INGRESS_SERVICE_NAME="ingress-nginx-controller"
-INGRESS_NAMESPACE="ingress-nginx"
+INGRESS_SERVICE_NAME="nginx-ingress-ingress-nginx-controller"
+INGRESS_NAMESPACE="nginx-ingress"
 
 echo "waiting for service to start"
 sleep 60
@@ -40,7 +28,7 @@ for AZ in $AZS; do
     fi
 
 
-    aws elb attach-load-balancer-to-subnets --load-balancer-name "$INGRESS_LB_NAME" --subnets "$INGRESS_SUBNET_ID"
+    aws elb attach-load-balancer-to-subnets --load-balancer-name "$INGRESS_LB_NAME" --subnets "$SUBNET_ID"
 done
 
 

@@ -6,7 +6,11 @@ provider "helm" {
     config_path = "~/.kube/config" 
   }
 }
-
+provider "kubernetes" {
+  
+  config_path = "~/.kube/config" 
+  
+}
 
 
 data "aws_availability_zones" "available" {
@@ -77,11 +81,16 @@ module "eks" {
       min_size     = 2
       max_size     = 4
       desired_size = 2
+
+      tags = {
+        "k8s.io/cluster-autoscaler/${local.cluster_name}" = "owned"
+        "k8s.io/cluster-autoscaler/enabled"               = "true"
+      }
     }
 
   }
 }
-resource "null_resource" "local_command" {
+resource "null_resource" "kubeconfig" {
   depends_on = [module.eks]
   
 
@@ -89,6 +98,7 @@ resource "null_resource" "local_command" {
     command = <<-EOT
       aws eks --region ${var.region} update-kubeconfig \
       --name eks-${var.clustername}-project
+      until kubectl get nodes; do echo 'Waiting for kubeconfig to be ready...'; done
     EOT
   }
 }
@@ -129,6 +139,7 @@ resource "null_resource" "deploy_cluster_autoscaler" {
 
   provisioner "local-exec" {
     command = <<-EOT
+      until kubectl get nodes; do sleep 5; done
       kubectl apply -f https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
       kubectl -n kube-system annotate deployment.apps/cluster-autoscaler cluster-autoscaler.kubernetes.io/safe-to-evict="false"
       kubectl -n kube-system set image deployment.apps/cluster-autoscaler cluster-autoscaler=k8s.gcr.io/autoscaling/cluster-autoscaler:v1.25.0
